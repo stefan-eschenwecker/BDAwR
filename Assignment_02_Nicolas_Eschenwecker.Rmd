@@ -1,0 +1,76 @@
+---
+title: "Assignment_02"
+author: "Manon Nicolas & Stefan Eschenwecker"
+date: "28 11 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r loading packages}
+library(tidyverse)
+library(haven)
+library(readxl)
+```
+
+1) Reading in the data sets
+
+```{r Reading}
+books_tsv <- read_tsv("exercise #2 files/books.tsv")
+books_txt <- read_delim("exercise #2 files/books.txt", delim = "|")
+ches_2017 <- read_csv("exercise #2 files/ches_2017.csv")
+ches_2017_modified <- read_csv("exercise #2 files/ches_2017_modified.csv", skip = 4)
+publishers_sheet_1 <- read_excel("exercise #2 files/publishers.xlsx", sheet = 1)
+publishers_sheet_2 <- read_excel("exercise #2 files/publishers.xlsx", sheet =2)
+spotify_2018 <- read_csv("exercise #2 files/spotify2018.csv")
+
+```
+
+2) Tidying the data sets
+
+```{r Tidying}
+#books 
+
+books_tsv_tidy <- books_tsv %>% 
+  separate(author, into = c("author_1", "author_2", "author_3"),
+           sep = " and ")
+
+books_txt_tidy <- books_txt %>% 
+  separate(author, into = c("author_1", "author_2", "author_3"),
+           sep = " and ")
+
+#authors stacked in one column
+
+books_tsv_stacked <- books_tsv %>% 
+  separate_rows(author, sep = " and ")
+
+books_txt_stacked <- books_txt %>% 
+  separate_rows(author, sep = " and ")
+
+#ches 2017 modified
+
+ches_2017_modified_tidy <- ches_2017_modified %>% 
+  pivot_wider(names_from = variable, values_from = value)
+  
+#publishers
+  
+publishers_sheet_1_tidy <- publishers_sheet_1 %>% 
+  separate(city, into = c("city", "state"),
+           sep = ",")
+
+publishers_sheet_2_tidy <- publishers_sheet_2 %>% 
+  separate(place, into = c("city", "state"),
+           sep = ",")
+
+publishers_tidy <- publishers_sheet_1_tidy %>% 
+  bind_rows(publishers_sheet_2_tidy)
+
+```
+
+
+
+
+
+
