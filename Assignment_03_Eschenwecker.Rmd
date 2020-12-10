@@ -1,0 +1,338 @@
+---
+title: "Assignment 3"
+author: "Stefan Eschenwecker"
+date: "9 12 2020"
+output: html_document
+---
+
+
+```{r load packages}
+library(tidyverse)
+library(forcats)
+library(lubridate)
+library(rtweet)
+```
+
+```{r load files}
+IMDb <- read_csv("exercise #3/imdb2006-2016.csv")
+ESS_Germany_2016 <- read_csv("exercise #3/ess2016_ger.csv")
+```
+
+## dplyr Exercises
+
+1. Find the duplicated movie. How could you go across this?
+
+```{r}
+IMDb %>% 
+  count(Title) 
+
+#There are only 999 observations left, so it seems like there is one movie duplicated
+
+IMDb %>% 
+  group_by(Title) %>% 
+  tally() %>% 
+  filter(n > 1)
+
+#The title 'The Host' appears two times
+
+IMDb %>% 
+  filter(Title == "The Host")
+
+#Although the title is identical, all other variables are distinct from each other
+
+```
+
+2. Which director has made the longest movie?
+
+```{r}
+IMDb %>% 
+  arrange(desc(`Runtime (Minutes)`)) %>% 
+  glimpse()
+
+#Robert Rodriguez has directed the longest movie.
+
+```
+
+3. What's the highest rated movie?
+
+```{r}
+IMDb %>% 
+  arrange(desc(Rating)) %>% 
+  glimpse()
+
+#The Dark Knight by Christopher Nolan
+
+```
+
+4. Which movie got the most votes?
+
+```{r}
+IMDb %>% 
+  arrange(desc(Votes)) %>% 
+  glimpse()
+
+#The Dark Knight by Christopher Nolan
+  
+```
+
+5. Which movie had the biggest revenue in 2016?
+
+```{r}
+IMDb %>% 
+  filter(Year == 2016) %>% 
+  arrange(desc(`Revenue (Millions)` )) %>% 
+  glimpse()
+
+#Rogue One by Gareth Edwards
+
+```
+
+6. How much revenue did the movies in the dataset make each year in total?
+
+```{r}
+IMDb_revenue_per_year <-  IMDb %>% 
+  group_by(Year) %>% 
+  summarise(total_revenue = sum(`Revenue (Millions)`, na.rm = T))
+  
+IMDb_revenue_per_year
+
+#Look at new tibble for answer
+```
+
+7. Filter movies following some conditions:
+    a. More runtime than the average runtime
+    
+```{r}
+IMDb %>% 
+  mutate(avg_runtime = mean(`Runtime (Minutes)`)) %>% 
+  filter(`Runtime (Minutes)` > avg_runtime) %>% 
+  glimpse()
+```
+
+   b. Movies directed by J. J. Abrams
+   
+```{r}
+IMDb %>% 
+  filter(Director == "J.J. Abrams") %>% 
+  glimpse()
+```
+
+
+   c. More votes than the median of all of the votes
+   
+```{r}
+IMDb %>% 
+  mutate(median_votes = median(Votes)) %>% 
+  filter(Votes > median_votes) %>% 
+  glimpse()
+
+```
+
+   d. The movies which have the most common value (the mode) in terms of rating
+
+```{r}
+## helper function for mode
+
+my_mode <- function(x){ 
+    ta = table(x)
+    tam = max(ta)
+    if (all(ta == tam))
+         mod = NA
+    else
+         if(is.numeric(x))
+    mod = as.numeric(names(ta)[ta == tam])
+    else
+         mod = names(ta)[ta == tam]
+    return(mod)
+}
+
+IMDb %>% 
+  mutate(rating_mode = my_mode(Rating)) %>% 
+  filter(Rating == rating_mode) %>% 
+  glimpse()
+
+
+```
+
+## lubridate exercises
+
+Preparing the tibble
+```{r}
+#loading the data from twitter
+
+#juncker_timeline <- get_timeline(user = "@JunckerEU", n = 1000)
+
+#write_as_csv(juncker_timeline, file_name = "exercise #3/juncker_timeline_tweets.csv")
+
+# using the saved csv-file going on
+
+juncker_timeline_tweets <- read_csv("exercise #3/juncker_timeline_tweets.csv")
+
+```
+
+1. Drop all other columns. Make new columns containing the day, month, year, and hour of the respective postings.
+
+```{r}
+juncker_timeline_tweets_selected <- juncker_timeline_tweets %>% 
+  select(created_at)
+
+
+as_datetime(juncker_timeline_tweets_selected$created_at)
+
+juncker_timeline_tidy <- juncker_timeline_tweets_selected %>% 
+  mutate(year = year(juncker_timeline_tweets_selected$created_at),
+         month = month(juncker_timeline_tweets_selected$created_at),
+         day= day(juncker_timeline_tweets_selected$created_at),
+         hour= hour(juncker_timeline_tweets_selected$created_at)) %>% 
+  select(-created_at)
+
+juncker_timeline_tidy
+
+
+```
+
+
+2. Count the occurrences of years and months (in two different tibbles). Are there any patterns? Think about how you would visualize that (BONUS: try doing it using the basic code I have provided you in the last session).
+
+```{r}
+juncker_timeline_years <- juncker_timeline_tidy %>% 
+  count(year)
+
+juncker_timeline_years
+
+
+
+juncker_timeline_months <- juncker_timeline_tidy %>% 
+  count(month)
+
+juncker_timeline_months
+
+
+#Plot to look for patterns
+
+plot_juncker <- juncker_timeline_tidy %>% 
+  ggplot(aes(x= year, y=month)) + 
+  geom_point()
+
+plot_juncker
+```
+
+Seems like Jean Claude Juncker's account had only been active as long as he held office.
+
+
+
+3. Round the dates down to the first day of the month. Why does this make more sense than just extracting the month?
+
+```{r}
+
+juncker_timeline_floor_month <- juncker_timeline_tweets_selected %>% 
+  mutate(floor_month = floor_date(juncker_timeline_tweets_selected$created_at, unit = "month")) %>% 
+      select(-created_at)
+
+juncker_timeline_floor_month
+
+
+
+```
+
+If you extract the months, you'll lose the ability to track which days belong to a certain month. Hence 
+it get's more difficult to compare certain things.
+
+
+
+## forcats exercises
+
+1. Convert the variable `party_code` into a factor variable called `party_code_fct`. Drop all other variables.
+
+```{r}
+#party_code does not exist, therefore the variable "prtvede2" is being used
+
+ESS_Germany_2016_party_code <- ESS_Germany_2016 %>% 
+  select(prtvede2)
+
+
+party_code_fct <- as_factor(ESS_Germany_2016_party_code$prtvede2)
+party_code_fct
+
+```
+
+
+2. Look at the distribution of the parties; keep the 4 most common ones, all others should be coded to `Other`. Do it using the following three functions. Which of them was the best for the job?
+    a) using `fct_recode()`
+    b) using `fct_collapse()`
+    c) using `fct_lump()`
+    
+```{r}
+levels(party_code_fct)
+
+fct_count(party_code_fct)
+
+#using the ESS codebook for recoding the factors
+
+#a)
+
+party_code_fct_recode <- fct_recode(party_code_fct,
+                                    "CDU/CSU" = "1",
+                                    "SPD" = "2",
+                                    "Buendnis 90/ Die Gruenen" = "4",
+                                    "Die Linke" = "3",
+                                    "Other" = "5",
+                                    "Other" = "6",
+                                    "Other" = "7",
+                                    "Other" = "8",
+                                    "Other" = "9")
+fct_count(party_code_fct_recode)
+
+#b)
+
+party_code_fct_collapse <- fct_collapse(party_code_fct,
+                                        Other = c("5", "6", "7", "8", "9"))
+fct_count(party_code_fct_collapse)
+
+#Then you still must recode the parties' names 
+
+party_code_fct_collapse_recode <- fct_recode(party_code_fct_collapse,
+                                    "CDU/CSU" = "1",
+                                    "SPD" = "2",
+                                    "Buendnis 90/ Die Gruenen" = "4",
+                                    "Die Linke" = "3")
+fct_count(party_code_fct_collapse_recode)
+
+
+#c)
+
+party_code_fct_lump <- fct_lump_min(party_code_fct,
+                                    193, other_level = "Other")
+fct_count(party_code_fct_lump)
+
+#again you need to recode the numbers according to the parties
+
+party_code_fct_lump_recode <- fct_recode(party_code_fct_lump,
+                                    "CDU/CSU" = "1",
+                                    "SPD" = "2",
+                                    "Buendnis 90/ Die Gruenen" = "4",
+                                    "Die Linke" = "3")
+fct_count(party_code_fct_lump_recode)
+
+```
+    
+In my opinion the third way with `factor_lump_min` fits best. But it would recode the factor names 
+before using the function.
+
+
+
+3. Reorder the factor levels according to their number of occurrence.
+
+```{r}
+party_code_fct_order <- fct_infreq(party_code_fct_lump_recode)
+
+#control if succesful
+
+levels(party_code_fct_order)
+fct_count(party_code_fct_order)
+
+```
+
+
+
+
