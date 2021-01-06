@@ -1,0 +1,122 @@
+---
+title: "Untitled"
+author: "Stefan Eschenwecker"
+date: "6 1 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The given code for the assignment:
+
+```{r message=FALSE, warning=FALSE, include=TRUE}
+
+library(tidyverse)
+library(lubridate)
+library(COVID19)
+library(RcppRoll)
+
+south_africa <- 710
+uk <- 826
+european <- c(56, 276, 372, 380, 442, 528, 620, 724, 756)
+african <- c(72, 748, 426, 516, 508, 716)
+
+europe_data <- covid19(european) %>%
+  filter(date >= ymd("2020-08-26")) %>%
+  group_by(id) %>%
+  group_split() %>%
+  map_dfr(~ .x %>%
+    mutate(
+      new_cases = confirmed - lag(confirmed),
+      cases_population_1000000 = (new_cases / population) * 1000000,
+      rolling_avg = roll_mean(cases_population_1000000, n = 7, fill = NA_real_)
+    ) %>%
+    select(id, date, confirmed, new_cases, cases_population_1000000, rolling_avg)) %>%
+  filter(between(date, ymd("2020-09-01"), ymd("2021-01-01"))) %>%
+  group_by(date) %>%
+  summarize(average_cases = mean(rolling_avg)) %>%
+  mutate(type = "neighboring Europe") %>%
+  select(type, date, average_cases)
+
+africa_data <- covid19(african) %>%
+  filter(date >= ymd("2020-08-26")) %>%
+  group_by(id) %>%
+  group_split() %>%
+  map_dfr(~ .x %>%
+    mutate(
+      new_cases = confirmed - lag(confirmed),
+      cases_population_1000000 = (new_cases / population) * 1000000,
+      rolling_avg = roll_mean(cases_population_1000000, n = 7, fill = NA_real_)
+    ) %>%
+    select(id, date, confirmed, new_cases, cases_population_1000000, rolling_avg)) %>%
+  filter(between(date, ymd("2020-09-01"), ymd("2021-01-01"))) %>%
+  group_by(date) %>%
+  summarize(average_cases = mean(rolling_avg)) %>%
+  mutate(type = "neighboring Africa") %>%
+  select(type, date, average_cases)
+
+sa_data <- covid19(south_africa) %>%
+  mutate(
+    new_cases = confirmed - lag(confirmed),
+    cases_population_1000000 = (new_cases / population) * 1000000,
+    average_cases = roll_mean(cases_population_1000000, n = 7, fill = NA_real_)
+  ) %>%
+  filter(between(date, ymd("2020-09-01"), ymd("2021-01-01"))) %>%
+  mutate(type = "South Africa") %>%
+  select(type, date, average_cases)
+
+uk_data <- covid19(uk) %>%
+  mutate(
+    new_cases = confirmed - lag(confirmed),
+    cases_population_1000000 = (new_cases / population) * 1000000,
+    average_cases = roll_mean(cases_population_1000000, n = 7, fill = NA_real_)
+  ) %>%
+  filter(between(date, ymd("2020-09-01"), ymd("2021-01-01"))) %>%
+  mutate(type = "United Kingdom") %>%
+  select(type, date, average_cases)
+```
+
+Merging the different dataframes:
+
+```{r}
+data_neighbour <- full_join(africa_data, europe_data)
+data_uk_sa <- full_join(sa_data, uk_data)
+
+data_complete <- full_join(data_neighbour, data_uk_sa) %>%
+  select(-id)
+```
+
+Creating the plot: (based on the NYT example)
+
+```{r}
+
+
+plot_corona <- ggplot(data_complete) +
+  geom_line(aes(x = date, y = average_cases, color = type), size = 1) +
+  coord_cartesian(ylim = c(0, 750)) +
+  theme_minimal() +
+  labs(
+    title = "New daily coronavirus cases, per million residents",
+    x = "",
+    y = "", caption = "Chart shows rolling 7-day averages. 'Neighboring Europe' is Belgium, Germany, Ireland,\nItaly, Luxembourg, Netherlands, Portugal, Spain and Switzerland. 'Neighboring Africa' is\nBotswana, Eswatini, Lesotho, Namibia, Mozambique and Zimbabwe."
+  ) +
+  theme(
+    plot.caption = element_text(hjust = 0, face = "italic"),
+    legend.title = element_blank()
+  )
+
+
+
+
+
+plot_corona
+```
+
+Interpreting the plot:
+
+In order to estimate how much more contagious the new type of the Coronavirus is, one must look at the difference between average cases before and after its discovery at the beginning of December. Until December the lines for the United Kingdom and its neighboring countries seemed to develop quite similar. But after the mutated version of the virus spread in Great Britain, the amount of average cases rose dramatically. As of the beginning of 2021 the UK accounts for almost twice as many cases in comparison to the states next to it. The same goes for South Africa, where there had hardly been any distinctions compared to other regional nations up until the start of December. From this moment on the numbers also doubled compared to the ones from their neighboring countries. So without digging deeper into certain aspects and more complex models, it seems that the changed Covid-19 type is way more infectious than the original version.
+
+
+
