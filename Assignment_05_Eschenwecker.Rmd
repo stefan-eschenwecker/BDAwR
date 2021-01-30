@@ -1,0 +1,151 @@
+---
+title: "Assignment_05"
+author: "Stefan Eschenwecker"
+date: "29 1 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+### Loop exercises
+
+1)
+
+```{r}
+
+cars_tbl <- mtcars %>% 
+  rownames_to_column(var = "model_name") %>% 
+  select(mpg, cyl, disp, hp, gear)
+
+
+
+output <- double(length = ncol(cars_tbl))
+output <- set_names(output, colnames(cars_tbl))
+
+for (i in seq_along(cars_tbl)) {
+  output[[i]] <- mean(cars_tbl[[i]])
+  names(output)[[i]] <- paste0(names(output)[[i]], "_mean")
+}
+
+output
+
+
+
+```
+
+2)
+
+```{r}
+output_median <-  double(length = ncol(cars_tbl))
+output_median <- set_names(output_median, colnames(cars_tbl))
+
+for (i in seq_along(cars_tbl)) {
+  output_median[[i]] <- median(cars_tbl[[i]])
+  names(output_median)[[i]] <- paste0(names(output_median)[[i]], "_median")
+}
+
+
+output_median
+
+```
+
+3)
+
+```{r}
+character_vector <- vector(mode = "character", length = 3)
+
+for (i in seq_along(character_vector)){
+  character_vector <- paste(c("I", "accomplished", "task3"))
+}
+
+character_vector
+```
+
+4)
+
+```{r}
+tibble(
+  n = 10,
+  mean = 1:10,
+  sd = 0.5
+) %>% 
+  pmap(rnorm)
+
+
+```
+
+### Function exercises
+
+1) with examples
+
+```{r}
+rescale0to1 <- function(x){
+  (x - min(x, na.rm = TRUE)) / (max(x, na.rm = TRUE) - min(x, na.rm = TRUE))
+}
+
+
+x <- c(200, 300, 500, 1000)
+y <- c(100, 3, 30)
+
+rescale0to1(x)
+rescale0to1(y)
+```
+
+2a)
+
+```{r}
+
+play_roulette <- function(bet, number) {
+  draw <- sample(0:36, 1)
+  tibble(
+    winning_number = draw,
+    your_number = number,
+    your_bet = bet,
+    your_return = if (number == draw) {
+      bet * 36
+    } else {
+      0
+    }
+  )
+}
+
+
+desired_length <- 10 
+list_w_for <- vector(mode = "list", length = desired_length)
+
+for(i in 1:10){
+  list_w_for[[i]] <- play_roulette(bet = 1, number = 5)
+}
+
+
+for_tibble <- bind_rows(list_w_for)
+for_tibble
+```
+
+2b)
+
+```{r}
+
+```
+
+2c)
+
+```{r}
+
+```
+
+3)
+
+```{r}
+red_fields <- c(32, 19, 21, 25, 34, 27, 36, 30, 23, 5, 16, 1, 14, 9, 18, 7, 12, 3)
+black_fields <- setdiff(1:36, red_fields)
+zero <- 0
+
+```
+
