@@ -183,16 +183,22 @@ play_roulette <- function(bet, number, bet_color) {
    bet_color = bet_color,
     your_number = number,
     your_bet = bet,
-    your_return = if (number == draw | bet_color == winning_color) {
+    your_return = if (number == draw) {
       bet * 36
-    } else {
-      0
-    }
+    } else 
+      if (bet_color == winning_color) {
+        bet*36
+      } else
+        if (number == draw & bet_color == winning_color){
+          bet*72
+        } else {
+          0
+        }
   )
 }
 
 map_color_roulette <- map_dfr( 1:10,
-    ~play_roulette(bet = 1, number = 32, bet_color = "black"))
+    ~play_roulette(bet = 1, number = 0, bet_color = "black"))
 map_color_roulette
 
 ```
