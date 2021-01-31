@@ -70,14 +70,17 @@ character_vector
 4)
 
 ```{r}
-tibble(
+a <- tibble(
   n = 10,
   mean = 1:10,
   sd = 0.5
 ) %>% 
   pmap(rnorm)
 
+names(a) <- c("1":"10")
 
+a_tibble <- bind_rows(a)
+a_tibble
 ```
 
 ### Function exercises
@@ -119,7 +122,7 @@ play_roulette <- function(bet, number) {
 desired_length <- 10 
 list_w_for <- vector(mode = "list", length = desired_length)
 
-for(i in 1:10){
+for(i in seq_along(list_w_for)){
   list_w_for[[i]] <- play_roulette(bet = 1, number = 5)
 }
 
@@ -132,11 +135,28 @@ for_tibble
 
 ```{r}
 
+list_w_while <- list()
+i <- 1
+
+while(i <=10) {
+  list_w_while[[i]] <- play_roulette(bet = 1, number = 15)
+  i <- i + 1
+}
+
+while_tibble <- bind_rows(list_w_while)
+while_tibble
 ```
 
 2c)
 
 ```{r}
+
+
+maplist <- map_dfr( 1:10,
+    ~play_roulette(bet = 1, number = 18))
+maplist
+
+
 
 ```
 
@@ -146,6 +166,34 @@ for_tibble
 red_fields <- c(32, 19, 21, 25, 34, 27, 36, 30, 23, 5, 16, 1, 14, 9, 18, 7, 12, 3)
 black_fields <- setdiff(1:36, red_fields)
 zero <- 0
+color <- c("red", "black", "green")
+
+play_roulette <- function(bet, number, bet_color) {
+  draw <- sample(0:36, 1)
+  tibble(
+    winning_number = draw,
+   winning_color = if (draw %in% red_fields) {
+      "red"
+    } else 
+      if (draw %in% black_fields) {
+      "black"
+    } else {
+      "green"
+    },
+   bet_color = bet_color,
+    your_number = number,
+    your_bet = bet,
+    your_return = if (number == draw | bet_color == winning_color) {
+      bet * 36
+    } else {
+      0
+    }
+  )
+}
+
+map_color_roulette <- map_dfr( 1:10,
+    ~play_roulette(bet = 1, number = 32, bet_color = "black"))
+map_color_roulette
 
 ```
 
