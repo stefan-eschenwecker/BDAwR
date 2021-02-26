@@ -1,0 +1,352 @@
+---
+title: "Democracy and Covid19 - an unfortunate combination?"
+author: "Stefan Eschenwecker"
+date: "26 2 2021"
+output: html_document
+bibliography: BDAwR.bib
+csl: american-political-science-association.csl
+link-citations: yes
+---
+
+### Intro
+
+Nowadays, people often argue that states like China or North Korea are far ahead of western democracies in the battle against the Coronavirus, mainly because of their authoritarian regime. Therefore, they can more proficiently restrict public life, trace contracts, and consequently contain the pandemic. To prove if there is any scientific evidence supporting this "knowledge", this research is conducted. Hence, the hypotheses of this article reads as follows: The freer the inhabitants of a country live the higher infection numbers rise.
+
+### Choosing the data sets
+
+In order to revise this theory, a big data analysis with two distinct free accessible data sets is applied. On the one hand, a Covid19 corpus is utilized [@guidotti.2020]. It was downloaded on February 24, 2021, so later updates of the file are not taken into account. On the other hand, the Freedom House Index (FHI) is used as an indicator of how democratized a certain country is [@freedomhouse.2021]. It is an estimation of experts that is composed of a 0-40 scale regarding political rights and a 0-60 scale concerning civil liberties. To put it in a nutshell, a score of 100 represents perfect democracy and freedom, whereas a classification with 0 points stands for a dictatorship or totalitarian regime. Even though there are a lot of other decent indices, the FHI is widely accepted as a proper measurement for democracy. As a first step commencing the analysis, one could glimpse the raw data material. For this reason, three randomly selected observations within each data set get depicted. This reduction is necessary because the original Covid19 corpus includes 79,219 rows and the Freedom House data 1,675 observations.
+\n  
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+
+
+```{r loading packages, message=FALSE, warning=FALSE, include=FALSE}
+library(tidyverse)
+library(COVID19)
+library(readxl)
+library(countrycode)
+library(ggrepel)
+library(DescTools)
+library(kableExtra)
+library(moderndive)
+library(summarytools)
+library(corrr)
+library(corrplot)
+library(ggpubr)
+library(jtools)
+```
+
+
+
+```{r Downloading and saving the covid19 data, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+
+
+
+# covid19_dataset <- covid19()
+# write_csv(covid19_dataset, file = "covid19_dataset.csv")
+```
+
+
+
+```{r reading in datasets, message=FALSE, warning=FALSE, include=FALSE}
+covid19_dataset <- read.csv("covid19_dataset.csv")
+freedom_house_index <- read_excel("FHI_2013-2020.xlsx", sheet = 2, skip = 1)
+```
+
+
+
+```{r raw data set slice of covid, echo=FALSE, message=FALSE, warning=FALSE}
+
+slice_covid <- covid19_dataset %>%
+  slice(1000, 5000, 18500)
+
+kbl(slice_covid) %>%
+  kable_paper() %>%
+  scroll_box(width = "1000px", height = "200px")
+```
+
+
+
+```{r raw data set slice of fhi, echo=FALSE, message=FALSE, warning=FALSE}
+
+slice_fhi <- freedom_house_index %>%
+  slice(800, 1150, 1600)
+
+kbl(slice_fhi) %>%
+  kable_paper() %>%
+  scroll_box(width = "1000px", height = "200px")
+```
+
+### Data wrangling
+
+For the purpose of this study, the data sets need to be reduced. The only variables of interest in the Covid19 data set are the sum of the total number of infections, computed with the maximum of the *confirmed* variable, the *population* column, and a *share of infections per population*, calculated by the number of total cases divided by population. To clean up the FHI corpus, the name of `Country/Territory` needs to be transformed into a tidy format. Furthermore, only this variable and the total FHI-score at the end are selected for further inquiries. Subsequent to this, the *id* column of the Covid19 set gets converted into full country names. Afterward, it is possible to join the two data frames together by the country variable. Missing values are removed during this merging process. The final data set looks as follows:  
+
+
+```{r manipulating the datasets, message=FALSE, warning=FALSE, include=FALSE}
+
+
+freedom_house_selected <- freedom_house_index %>%
+  filter(Edition == 2020) %>%
+  select(`Country/Territory`, Total) %>%
+  rename(
+    country = `Country/Territory`,
+    index = Total
+  )
+
+
+covid19_per_country <- covid19_dataset %>%
+  select(id, confirmed, population) %>%
+  group_by(id) %>%
+  summarise(
+    tot_confirmed = max(confirmed, na.rm = T),
+    population = mean(population, na.rm = T)
+  ) %>%
+  mutate(share_of_infections_per_pop = (tot_confirmed / population))
+```
+
+```{r merging the two datasets together and removing NAs, message=FALSE, warning=FALSE, include=FALSE}
+
+covid_country_code <- countrycode(covid19_per_country$id, "iso3c", "country.name")
+
+covid19_full_countryname <- covid19_per_country %>%
+  mutate(country = covid_country_code) %>%
+  select(-id) %>%
+  select(country, tot_confirmed, population, share_of_infections_per_pop) %>%
+  na.omit()
+
+covid19_and_fhi_data <- left_join(covid19_full_countryname,
+  freedom_house_selected,
+  by = "country"
+) %>%
+  na.omit()
+```
+
+```{r finished data set in a table, echo=FALSE, message=FALSE, warning=FALSE}
+kbl(covid19_and_fhi_data) %>%
+  kable_styling(fixed_thead = T) %>%
+  kable_paper() %>%
+  scroll_box(width = "100%", height = "300px")
+```
+
+### Descriptive statistics
+
+Altogether, 173 observations and 5 columns are considered for further examination. At first, it might be interesting to look at the five highest and lowest manifestations of the FHI, the total number of confirmed Covid19 cases, and the share of infections per population. That way one can assess if the hypotheses points in the right direction. 
+
+
+```{r free and unfree countries in a table, echo=FALSE, message=FALSE, warning=FALSE}
+
+most_unfree_countries <- covid19_and_fhi_data %>%
+  arrange(index) %>%
+  slice(1:5)
+
+
+most_free_countries <- covid19_and_fhi_data %>%
+  arrange(desc(index)) %>%
+  slice(1:5)
+
+
+free_unfree_countries <- bind_rows(most_free_countries, most_unfree_countries)
+
+
+free_unfree_countries <- free_unfree_countries %>%
+  arrange(index) %>%
+  kbl() %>%
+  kable_styling() %>%
+  kable_paper()
+free_unfree_countries
+```
+\n
+The FHI properly reflects reality by grading the Scandinavian countries with a perfect score and civil war states like South Sudan and Syria on the low end of their scale. The share of infections per population seems to steadily rise to start at less than 0.01% percent in Syria up to about 6.3% in Sweden. The total cases, however, are not following any trend, as Saudi Arabia evinces a lot more instances than Finland or Norway.
+
+
+```{r low and high total infections in a table, echo=FALSE, message=FALSE, warning=FALSE}
+
+fewest_infections <- covid19_and_fhi_data %>%
+  arrange(tot_confirmed) %>%
+  slice(1:5)
+
+
+most_infections <- covid19_and_fhi_data %>%
+  arrange(desc(tot_confirmed)) %>%
+  slice(1:5)
+
+
+infections <- bind_rows(fewest_infections, most_infections)
+
+
+infections <- infections %>%
+  arrange(tot_confirmed) %>%
+  kbl() %>%
+  kable_styling() %>%
+  kable_paper()
+infections
+```
+\n
+The chart above depicts both the top and bottom five of total confirmed Covid19 cases. The nations with almost no positive tests are all little islands, except Laos, and are characterized by a relatively small population. By contrast, at the peak of confirmed cases are geographically expanded countries like Russia and Brazil, which all show a huge amount of citizens. The share of infections per population starts near zero in the island states but does not incline linearly. Another surprising fact, which needs to be observed, later on, is the large gap between Russia and Brazil. Brazil, India, and the United States probably are unfortunate outliers in the worldwide fight against the pandemic. Potential reasons for this leading role, at least in the cases of Brazil and the US, can be derived from a lack of political leadership and a governmental trivialization of this disease. The FHI is mixed throughout the table, but at the top five list only one country, Russia, can be rated as authoritarian.
+
+
+```{r lowest and highest infection rates per population in a table ,echo=FALSE, message=FALSE, warning=FALSE}
+lowest_infection_rate_per_pop <- covid19_and_fhi_data %>%
+  arrange(share_of_infections_per_pop) %>%
+  slice(1:5)
+
+
+highest_infection_rate_per_pop <- covid19_and_fhi_data %>%
+  arrange(desc(share_of_infections_per_pop)) %>%
+  slice(1:5)
+
+
+infection_rate_per_pop <- bind_rows(lowest_infection_rate_per_pop, highest_infection_rate_per_pop)
+
+
+infection_rate_per_pop <- infection_rate_per_pop %>%
+  arrange(share_of_infections_per_pop) %>%
+  kbl() %>%
+  kable_styling() %>%
+  kable_paper()
+infection_rate_per_pop
+```
+\n
+When looking at the share of infections per population two aspects immediately strike the eye: On the one hand, again islands and developing countries are almost completely free of Covid19. Three of the five states are equal to the total confirmed table, namely Vanuatu, Laos, and Samoa. On the other hand, the countries with the highest proportion are primary miniature states within Europe. All five are located in Central, respectively Eastern Europe and lie neighboring to former hotspot countries like Italy, Spain, France, and Belgium. The extremely low proportions in Tanzania and Vietnam, concerning their population size, might be explainable through their status as developing countries.
+
+
+```{r descriptive statistics, echo=FALSE, message=FALSE, warning=FALSE}
+
+desc_statistics <- covid19_and_fhi_data %>%
+  select(tot_confirmed, index, share_of_infections_per_pop, population) %>%
+  descr(
+    stats = c("min", "med", "mean", "sd", "iqr", "max"),
+    style = "rmarkdown"
+  )
+
+desc_statistics <- desc_statistics %>%
+  kbl() %>%
+  kable_styling() %>%
+  kable_paper()
+desc_statistics
+```
+\n
+Now it is time to view the descriptive statistics of the remaining variables. Firstly, the FHI ranges from 0 to 100, so the entire scale is used in this sample. The median and the mean of the distribution are located at a value around 60. However, a standard deviation of about 30, at least a third of the total range, indicates a lot of noise throughout the distribution. In contrast, the small range of infections per population is remarkable. It starts at a minimum of almost 0% up to a peak of about 13%. The middle between the outlier-sensitive mean and the more robust median is at just about 1.5%, with a standard deviation of around 2.3%. The IQR indicates that the inner 50% of the sample distribution only is scattered within 3.9%. Therefore, the proportion variable seems to be spread in a small manner. Lastly, the total number of confirmed cases reaches from a single positive test up to over 28 million cases in the US. The tremendous difference between the median and the mean is partly caused by the formerly mentioned outlier-countries, as the mean holds a value of 634 thousand to a median value of "only" 75 thousand. The standard deviation is extraordinarily high with over 2 million in contrast to an IQR that has an amount of 277 thousand. Consequently, there seem to be a lot of nations with relatively equal and low confirmed case numbers as opposed to relatively few states with a high amount of positive test.
+
+### Corellation
+
+As a next step, a possible correlation between the number of confirmed cases, respectively the share of positive tests per population, and the FHI gets calculated. As all three variables are scaled metrically and the hypothesis conjectures linearity, Pearson's correlation coefficient can be applied. The graph below depicts the results:
+
+```{r correlations, echo=FALSE, message=FALSE, warning=FALSE}
+
+corr_matrix <- covid19_and_fhi_data %>%
+  select(c(-population, -country)) %>%
+  cor()
+
+corrplot(corr_matrix, method = "number", type = "upper")
+```
+
+\n
+
+Two squares of the correloplot are important for the cause of this study, namely the correlation degree between *index* and *tot_confirmed* as well as the value between *index* and *share_of_infections_per_pop*. The coefficient for the first-mentioned only shows a low positive degree (0.13), while the latter shows a moderate positive linear relationship (0.42). This may indicate, that there is substance to the theory. 
+
+### Scatterplots
+
+To visualize the linear relationship between each pair of variables, two separate scatterplots are created. However, at first one should look at the graph including the confirmed cases as the dependent variable, to determine, whether the three outlier-countries should be removed or not.
+
+```{r scatterplot 1, echo=FALSE, message=FALSE, warning=FALSE}
+scatterplot1 <- ggplot(
+  covid19_and_fhi_data,
+  aes(x = index, y = tot_confirmed)
+) +
+  geom_point(size = 1.5, shape = 17) +
+  scale_y_continuous(labels = scales::comma) +
+  geom_smooth(method = "lm", se = T, size = 1.4) +
+  theme_grey() +
+  ylab(label = "Total number of confirmed cases") +
+  xlab(label = "Freedom House Index") +
+  ggtitle("Correlation between FHI and total number of confirmed cases") +
+  theme(
+    plot.title = element_text(size = 10),
+    axis.title = element_text(size = 10),
+    axis.text = element_text(size = 8)
+  )
+
+
+scatterplot1
+```
+
+\n
+
+The regression line in the graph above is almost flat, as to be expected from the low correlation coefficient. Brazil, India, and the US also cause a very high-scaled y-axis. Therefore, these outliers should be excluded from the further assessments of this study, because this enables a zoom into the data and hopefully a clearer perspective. In the next step, the outlier-free scatterplot and the other pair of interest are presented in the figure below:
+
+
+```{r final scatterplots, echo=FALSE, message=FALSE, warning=FALSE}
+
+
+scatterplot1_filtered <- covid19_and_fhi_data %>%
+  filter(tot_confirmed <= 10000000) %>%
+  ggplot(aes(x = index, y = tot_confirmed)) +
+  geom_point(size = 1.5, shape = 17) +
+  scale_y_continuous(labels = scales::comma) +
+  geom_smooth(method = "lm", se = T, size = 1.4) +
+  theme_grey() +
+  ylab(label = "Total number of confirmed cases") +
+  xlab(label = "Freedom House Index") +
+  ggtitle("Correlation between FHI and total number of\nconfirmed cases") +
+  theme(
+    plot.title = element_text(size = 10),
+    axis.title = element_text(size = 10),
+    axis.text = element_text(size = 8)
+  )
+
+
+
+scatterplot2 <- ggplot(
+  covid19_and_fhi_data,
+  aes(x = index, y = share_of_infections_per_pop)
+) +
+  geom_point(size = 1.5, shape = 17) +
+  scale_y_continuous(labels = scales::comma) +
+  geom_smooth(method = "lm", se = T, size = 1.4) +
+  theme_grey() +
+  ylab(label = "Share of infections per population") +
+  xlab(label = "Freedom House Index") +
+  ggtitle("Correlation between FHI and share of\ninfections per population") +
+  theme(
+    plot.title = element_text(size = 10),
+    axis.title = element_text(size = 10),
+    axis.text = element_text(size = 8)
+  )
+
+
+
+scatterplots <- ggarrange(scatterplot1_filtered, scatterplot2, ncol = 2)
+scatterplots
+```
+
+\n
+
+When looking at the left plot, one can observe that the blue regression line got a little steeper compared to the outlier-including plot. However, the margin for the standard error (dark gray) is wide, so there is still the possibility of a good FHI having no influence on the total number of confirmed cases. Furthermore, there is only a small number of countries with high numbers. Admittedly, most of them are showing a high FHI score, but the vast majority of states are indicating an extremely low number of positive Covid19 tests. Thus the question arises whether these rates derive from the non-spread of the virus, or poor, authoritarian, civil war suffering, and failed states simply do not have the capabilities to test their citizens.
+\n
+The chart on the right side, which visualizes the relationship between the FHI and share of infections per population, shows a different image. As expected, the regression line is inclining stronger compared to the left plot, and the standard error, even in the worst-case, points towards a linear positive correlation. Additionally, there are more states spread throughout the graph, even though the majority is still located at the bottom of the y-axis. However, one can deduce that of the countries with a proportional infection rate greater than zero, only the minority of nations consists of authoritarian regimes.
+
+### Regression model
+
+To prove if the assumptions made regarding the graph, which set the FHI as independent and the share of infections per population as the dependent variable, is substantial, a linear regression model is conducted. The results read as follows:
+
+```{r regression, echo=FALSE, message=FALSE, warning=FALSE}
+
+regression_table <- lm(share_of_infections_per_pop ~ index, data = covid19_and_fhi_data)
+summ(regression_table, digits = 9)
+```
+\n
+
+The p-value for the FHI is highly significant as it amounts to almost zero. Also, the F-value, an indicator that predicts how well a certain model fits the underlying data, shows a high value of 36.8. Furthermore, the FHI variable is able to explain 17.2% of the variance of the dependent variable. This can be derived from the adjusted R^2^ value. Additionally, the small standard error and the high t-value contribute to the overall good impression of the model as a whole. Nevertheless, the value of the regression coefficient is relatively low, because in this case an incline of the FHI by one would be followed by a rise of the share of infections per population by a mere 0.039%. Considering the high standard deviation of the FHI, a rise of 10, 20, 30 or even more is not unlikely. Therefore, the regression coefficient would predict an incline of infection proportion of up to 0.12%. In the case of San Marino, the effect size would be marginal, resulting in only about 41 more cases, in contrast to a substantial effect size in a state like India, where this would lead to around 1,623,141 more people infected by the virus.
+
+### Conclusion
+
+Altogether, there seems to be at least some causal relationship between the type of regime and the spread of the Covid19 virus. Therefore, the everyday knowledge of people proved to give some substantial contribution in explaining the distinctive spread of the pandemic. Of course, this study did not fully take all scientific requirements into account, as it was more a curious dive into the data.
+
+\n
+\pagebreak
+
+# References
